@@ -1,0 +1,75 @@
+- hosts: web_servers
+  become: true
+  pre_tasks:
+  
+    - name: dpkg for Ubuntu
+      shell:
+        dpkg --configure -a
+      when: ansible_distribution == "Ubuntu"
+
+    - name: Install Docker for Ubuntu
+      apt:
+        name: docker
+        state: latest
+      when: ansible_distribution == "Ubuntu"
+
+    - name: Install SDK for Ubuntu
+      shell:
+        pip3 install docker-py
+
+    - name: Add group to Docker
+      shell:
+        usermod -aG docker tamayo
+
+    - name: Enable and Restart Docker for Ubuntu
+      service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Creating Directory for Dockerfile
+      file:
+        path: ./root/demo-dockerfile
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Import Dockerfile
+      copy:
+        src: ./dockerfile
+        dest: ./root/demo-dockerfile/dockerfile
+        owner: root
+        group: root
+        mode: '0755'
+
+- hosts: db_servers
+  become: true
+  pre_tasks:
+  
+    - name: Install all required packages
+      dnf:
+        name:
+          - yum-utils
+          - device-mapper-persistent-data
+          - lvm2
+        state: present
+
+    - name: Add Docker repository
+      yum_repository:
+        name: docker-ce
+        description: Docker CE Stable - $basearch
+        baseurl: https://download.docker.com/linux/centos/7/$basearch/stable
+        gpgkey: https://download.docker.com/linux/centos/gpg
+        enabled: yes
+
+    - name: Install Docker for CentOS
+      dnf:
+        name: docker-ce
+        state: present
+
+    - name: Start and enable Docker service for CentOS
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
